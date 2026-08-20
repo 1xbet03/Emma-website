@@ -79,6 +79,7 @@ export interface Passenger {
 
 export interface Booking {
   id: string;
+  userId?: string;
   bookingReference: string;
   trip: Trip;
   passengers: Passenger[];
@@ -90,6 +91,14 @@ export interface Booking {
   paymentMethod: string;
   insuranceSelected: boolean;
   qrCodeData: string;
+}
+
+export interface UserProfile {
+  userId: string;
+  displayName: string;
+  email: string;
+  photoURL?: string;
+  createdAt: string;
 }
 
 export interface CityOption {

@@ -1,0 +1,111 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Account profile for authenticated bus passengers.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Unique user authentication UID"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "User full name"
+        },
+        "email": {
+          "type": "string",
+          "description": "User email address"
+        },
+        "photoURL": {
+          "type": "string",
+          "description": "User avatar photo URL"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "ISO creation timestamp"
+        }
+      },
+      "required": ["userId", "email"]
+    },
+    "Booking": {
+      "title": "Booking",
+      "description": "Bus ticket reservation containing trip details, seats, passengers and status.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique booking identifier"
+        },
+        "userId": {
+          "type": "string",
+          "description": "Owner passenger UID"
+        },
+        "bookingReference": {
+          "type": "string",
+          "description": "Reference ticket code like BT-123456"
+        },
+        "trip": {
+          "type": "object",
+          "description": "Trip information including origin, destination, time, operator"
+        },
+        "passengers": {
+          "type": "array",
+          "description": "List of booked passengers"
+        },
+        "selectedSeats": {
+          "type": "array",
+          "description": "List of selected seats"
+        },
+        "totalPrice": {
+          "type": "number",
+          "description": "Total price paid in Euros"
+        },
+        "date": {
+          "type": "string",
+          "description": "Travel date"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["confirmed", "cancelled"],
+          "description": "Booking status"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "ISO timestamp of creation"
+        },
+        "paymentMethod": {
+          "type": "string",
+          "description": "Payment method used"
+        },
+        "insuranceSelected": {
+          "type": "boolean",
+          "description": "Whether Flex insurance is active"
+        },
+        "qrCodeData": {
+          "type": "string",
+          "description": "QR code verification payload"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "bookingReference",
+        "trip",
+        "totalPrice",
+        "status",
+        "createdAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile collection indexed by Firebase Auth UID."
+    },
+    "/bookings/{bookingId}": {
+      "schema": "Booking",
+      "description": "User bookings collection containing all ticket reservations."
+    }
+  }
+}

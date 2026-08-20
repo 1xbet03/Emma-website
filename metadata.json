@@ -2,5 +2,7 @@
   "name": "Bus Travel",
   "description": "Plateforme moderne de réservation de billets de bus avec expérience interactive et animations motion design fluides.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

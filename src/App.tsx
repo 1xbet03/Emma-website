@@ -24,10 +24,59 @@ import {
 import { getTripsForRoute, MOCK_TRIPS } from './data/mockData';
 import { motion, AnimatePresence } from 'motion/react';
 import { Bus, Search, ArrowRight, ShieldCheck, Sparkles, Filter } from 'lucide-react';
+import { useAuth } from './context/AuthContext';
+import {
+  subscribeToUserBookings,
+  saveBookingToFirestore,
+  cancelBookingInFirestore,
+} from './lib/bookingsService';
 
 const LOCAL_STORAGE_BOOKINGS_KEY = 'bus_travel_user_bookings';
 
+const DEFAULT_DEMO_BOOKING: Booking = {
+  id: 'book-demo-1',
+  bookingReference: 'BT-849201',
+  trip: MOCK_TRIPS[0],
+  passengers: [
+    {
+      id: 'p-demo-1',
+      firstName: 'Alexandre',
+      lastName: 'Dubois',
+      email: 'alexandre.dubois@email.com',
+      phone: '+33 6 12 34 56 78',
+      seatId: 'seat-lower-1-0',
+      seatNumber: '1A',
+      luggageCount: 1,
+      bulkyLuggage: false,
+      priorityBoarding: true,
+      snackBox: true,
+    },
+  ],
+  selectedSeats: [
+    {
+      id: 'seat-lower-1-0',
+      number: '1A',
+      row: 1,
+      col: 0,
+      deck: 'lower',
+      type: 'panoramic',
+      status: 'selected',
+      price: 28.99,
+      label: 'Panoramique VIP',
+    },
+  ],
+  totalPrice: 34.49,
+  date: '19 août 2026',
+  status: 'confirmed',
+  createdAt: new Date().toISOString(),
+  paymentMethod: 'Carte Bancaire (Apple Pay)',
+  insuranceSelected: true,
+  qrCodeData: 'https://bustravel.app/verify/BT-849201',
+};
+
 export default function App() {
+  const { user } = useAuth();
+
   // Navigation & View
   const [currentView, setCurrentView] = useState<'home' | 'search' | 'tracker' | 'bookings' | 'features'>('home');
 
@@ -76,52 +125,29 @@ export default function App() {
     } catch (e) {
       console.error(e);
     }
-    // Seed initial demo booking for instant discovery
-    return [
-      {
-        id: 'book-demo-1',
-        bookingReference: 'BT-849201',
-        trip: MOCK_TRIPS[0],
-        passengers: [
-          {
-            id: 'p-demo-1',
-            firstName: 'Alexandre',
-            lastName: 'Dubois',
-            email: 'alexandre.dubois@email.com',
-            phone: '+33 6 12 34 56 78',
-            seatId: 'seat-lower-1-0',
-            seatNumber: '1A',
-            luggageCount: 1,
-            bulkyLuggage: false,
-            priorityBoarding: true,
-            snackBox: true,
-          },
-        ],
-        selectedSeats: [
-          {
-            id: 'seat-lower-1-0',
-            number: '1A',
-            row: 1,
-            col: 0,
-            deck: 'lower',
-            type: 'panoramic',
-            status: 'selected',
-            price: 28.99,
-            label: 'Panoramique VIP',
-          },
-        ],
-        totalPrice: 34.49,
-        date: '19 août 2026',
-        status: 'confirmed',
-        createdAt: new Date().toISOString(),
-        paymentMethod: 'Carte Bancaire (Apple Pay)',
-        insuranceSelected: true,
-        qrCodeData: 'https://bustravel.app/verify/BT-849201',
-      },
-    ];
+    return [DEFAULT_DEMO_BOOKING];
   });
 
-  // Sync to local storage
+  // Real-time Firestore sync when authenticated
+  useEffect(() => {
+    if (!user) return;
+
+    const unsubscribe = subscribeToUserBookings(
+      user.uid,
+      (remoteBookings) => {
+        if (remoteBookings.length > 0) {
+          setBookings(remoteBookings);
+        }
+      },
+      (err) => {
+        console.warn('Firestore subscription warning:', err);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [user]);
+
+  // Sync to local storage for offline / quick load
   useEffect(() => {
     try {
       localStorage.setItem(LOCAL_STORAGE_BOOKINGS_KEY, JSON.stringify(bookings));
@@ -215,22 +241,44 @@ export default function App() {
     setBookingStep('payment');
   };
 
-  // Step 3: Payment Success -> Save booking and show Ticket pass
-  const handleBookingSuccess = (newBooking: Booking) => {
-    setBookings((prev) => [newBooking, ...prev]);
-    setActiveTicketBooking(newBooking);
+  // Step 3: Payment Success -> Save booking to Firestore and show Ticket pass
+  const handleBookingSuccess = async (newBooking: Booking) => {
+    const bookingWithUser: Booking = {
+      ...newBooking,
+      userId: user?.uid,
+    };
+
+    setBookings((prev) => [bookingWithUser, ...prev]);
+    setActiveTicketBooking(bookingWithUser);
     setBookingStep('ticket');
+
+    if (user) {
+      try {
+        await saveBookingToFirestore(bookingWithUser, user.uid);
+      } catch (err) {
+        console.error('Failed to save booking to Firestore:', err);
+      }
+    }
   };
 
   // Cancel a booking
-  const handleCancelBooking = (bookingId: string) => {
+  const handleCancelBooking = async (bookingId: string) => {
     if (confirm('Êtes-vous sûr de vouloir annuler ce billet ? Le remboursement sera crédité sous 24h.')) {
-      setBookings((prev) => prev.filter((b) => b.id !== bookingId));
+      setBookings((prev) =>
+        prev.map((b) => (b.id === bookingId ? { ...b, status: 'cancelled' } : b))
+      );
+      if (user) {
+        try {
+          await cancelBookingInFirestore(bookingId);
+        } catch (err) {
+          console.error('Failed to cancel booking in Firestore:', err);
+        }
+      }
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
+    <div className="min-h-screen bg-[#080808] text-white flex flex-col font-sans selection:bg-[#CCFF00] selection:text-black">
       {/* Navigation */}
       <Navbar
         onNavigate={setCurrentView}
